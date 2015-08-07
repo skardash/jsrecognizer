@@ -1,0 +1,431 @@
+﻿
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+		<meta name="viewport" content="width=device-width, height=device-height,  initial-scale=1.0, user-scalable=no, user-scalable=0"/>
+		<meta charset="utf-8">
+        <meta name=viewport content="width=device-width,initial-scale=1.0">
+        <title>HTML 5 Canvas Draw</title>
+        <style>
+            html, body {
+              width:  100%;
+              height: 100%;
+              margin: 0px;
+            }
+		
+			canvas { 
+				border-style: solid ;
+				border-width: 1px 1px 1px 1px; 
+			}
+        </style>
+    </head>
+    <body onload="init_canvas();">
+ 
+        <canvas id="pad">
+            <p>Not Supported</p>
+        </canvas>
+		<br>
+		<canvas id="small_canvas">
+            <p>Not Supported</p>
+        </canvas>
+		<!-- <textarea id="lbl"></textarea> -->
+		
+		<button onclick="clearImage()">Clear</button>
+		<!-- <button id="as" type="button" onclick = "load_from_server();">Load classifier</button> -->
+		<!-- <button id="as" type="button" onclick = "classify();">Classify image</button> -->
+
+		<div id="status_check"> </div><br>
+		<div id="image_data"> </div><br>
+		
+		<script src="jquery-1.8.3.min.js"></script>
+		<style type="text/css"></style>
+		<script src="vis.js"></script>
+		<script src="util.js"></script>
+		<script src="convnet.js"></script>
+		<script src="mnist_labels.js"></script>
+		<!-- <script src="http://code.jquery.com/jquery-1.9.1.min.js"></script> -->
+		<script>
+		classes_txt = ['just circle', 'circle and eyes', 'circle and mouth', 'арийский колобок', 'колобок-инвалид'];
+		
+		 //$('#textfield').textinput({preventFocusZoom:false});
+		//var canvas = document.getElementById('pad');
+		var cnt = 0;
+		var width = 28;
+		var height = 28;
+		if(window.addEventListener) {
+			/*
+			var windowWidth = $(window).width();
+			var windowHeight = $(window).height();
+			$('image_data').css({'width':windowWidth ,'height':windowHeight });
+			*/
+			
+			var canvas = document.getElementById('canvas');
+			if(canvas) {var context=canvas.getContext('2d');};
+			var destinationCanvas = document.getElementById('small_canvas');
+			if(destinationCanvas) {var destination_context=destinationCanvas.getContext('2d');};
+			
+			window.addEventListener('load', function () {
+				var draw;
+				// Touch Events handlers
+				draw = {
+					started: false,
+					start: function(event) {
+						context.beginPath();
+						var x = event.targetTouches[0].pageX;
+						var y = event.targetTouches[0].pageY;
+						
+						/*
+						context.moveTo(x, y)
+						context.lineWidth = 10.0;;
+						context.lineTo(x+1, y+1);
+						context.stroke();
+						*/	
+						
+						var radius = 13;
+						context.beginPath();
+						context.arc(x, y, radius, 0, 2 * Math.PI, false);
+						context.fillStyle = '#000000';
+						context.fill();
+						context.lineWidth = 0.1;
+						context.strokeStyle = '#000000';
+						context.stroke();
+						
+						context.beginPath();
+						context.moveTo(x, y);
+						
+						/*
+						context.beginPath();
+						context.moveTo(
+							event.targetTouches[0].pageX,
+							event.targetTouches[0].pageY
+						);
+						*/
+						/*
+						ctx = canvas.getContext('2d');
+						ctx.lineWidth=5;
+						ctx.beginPath();
+						ctx.moveTo(0,0);
+						ctx.lineTo(500,500);
+						ctx.stroke();
+						ctx.lineWidth=25;
+						ctx.beginPath();
+						ctx.moveTo(0,500);
+						ctx.lineTo(500,0);
+						ctx.stroke();
+						*/
+
+						
+						this.started = true;
+					},
+					move: function(event) {
+						if (this.started) {
+							context.lineTo(
+								event.targetTouches[0].pageX,
+								event.targetTouches[0].pageY
+							);
+							context.lineWidth = 24;
+							context.stroke();
+						}
+					},
+					end: function(event) {
+						this.started = false;
+						classify();
+						console.log('end event happened');
+					},
+					
+					start_mouse: function(event) {
+						context.beginPath();
+						var x = event.pageX - canvas.getBoundingClientRect().left;
+						var y = event.pageY - canvas.getBoundingClientRect().top;
+						//alert('x = ' + String(x) + '/y = ' + String(y));
+						var radius = 13;
+						context.beginPath();
+						context.arc(x, y, radius, 0, 2 * Math.PI, false);
+						context.fillStyle = '#000000';
+						context.fill();
+						context.lineWidth = 0.1;
+						context.strokeStyle = '#000000';
+						context.stroke();
+						
+						context.beginPath();
+						context.moveTo(x, y);
+						
+						this.started = true;
+					},
+					
+					move_mouse: function(event) {
+						if (event.which) {
+							if (this.started) {
+								context.lineTo(
+									event.pageX - canvas.getBoundingClientRect().left,
+									event.pageY - canvas.getBoundingClientRect().top
+								);
+								context.lineWidth = 24;
+								context.stroke();
+							}
+						}
+					},
+					
+					end_mouse: function(event) {
+						console.log('mouse released');
+						classify();
+						/*
+						if (event.which) {
+							if (this.started) {
+								context.lineTo(
+									event.pageX - canvas.getBoundingClientRect().left,
+									event.pageY - canvas.getBoundingClientRect().top
+								);
+								context.lineWidth = 24;
+								context.stroke();
+							}
+						}
+						*/
+					}
+				};
+		 
+				// Canvas & Context
+				canvas = document.getElementById('pad');
+				var destinationCanvas = document.getElementById('small_canvas');
+				var start_width = String(canvas.width);
+				var start_height = String(canvas.height);
+				canvas.width = window.innerWidth;
+				var size = 0.9*Math.min(window.innerHeight,window.innerWidth);
+				canvas.height = size;
+				canvas.width = size;
+				
+				destinationCanvas.height = height;
+				destinationCanvas.width = width;
+				
+				//$('#status_check').html('old_pars: ' + start_height + '/' + start_width + '; new_pars:' + String(window.innerHeight) + '/' + String(window.innerWidth)+ '; win_pars:' + String(canvas.height) + '/' + String(canvas.width) + '; cnt = ' + String(cnt));
+				context = canvas.getContext('2d');
+				cnt = cnt+1;
+				// Full Window Size Canvas
+				//context.canvas.width = window.innerWidth;
+				//context.canvas.height = window.innerHeight;
+				// Events
+				canvas.addEventListener('touchstart', draw.start, false);
+				canvas.addEventListener('touchend', draw.end, false);
+				canvas.addEventListener('touchmove', draw.move, false);
+				
+				canvas.addEventListener("mousedown", draw.start_mouse, false);
+				canvas.addEventListener("mousemove", draw.move_mouse, false);
+				canvas.addEventListener("mouseup", draw.end_mouse, false);
+				
+				//canvas.addEventListener('mousedown', draw.start, false);
+				//canvas.addEventListener('mousemove', draw.end, false);
+				//canvas.addEventListener('mouseup', draw.move, false);
+			});
+		 
+			// Disable Page Move
+			document.body.addEventListener('touchmove',function(event){
+			  event.preventDefault();
+			},false);
+		}
+
+			function clearImage(){
+				/*
+				var yes=confirm('Clear drawing?');
+				if(yes){
+					context.clearRect(0, 0, canvas.width, canvas.height);
+					context.fillStyle = "rgb(255,255,255)";  
+					context.fillRect(0, 0, canvas.width, canvas.height);
+				}
+				*/
+				context.clearRect(0, 0, canvas.width, canvas.height);
+				$('#status_check').html('Empty canvas');
+				//context.fillStyle = "rgb(255,255,255)";  
+				//context.fillRect(0, 0, canvas.width, canvas.height);
+				/*
+				destination_context.clearRect(0, 0, canvas.width, canvas.height);
+				destination_context.fillStyle = "rgb(255,255,255)";  
+				destination_context.fillRect(0, 0, canvas.width, canvas.height);
+				*/
+			}
+
+			/*
+			function upload_data() {
+				var data = document.getElementById("pad").toDataURL();
+				$.post("upload_image.php", {
+					imageData : data
+				}, function(data) {
+					window.location = data;
+				});
+				$('#status_check').html('huita');
+
+				
+				var destCtx = destinationCanvas.getContext('2d');
+				//call its drawImage() function passing it the source canvas directly
+				destCtx.drawImage(canvas, 0, 0, 28,28);
+			};
+			
+			
+			function upload_data() {
+				var data = document.getElementById("pad").toDataURL();
+				$.post("upload_image.php", {
+					imageData : data
+				});
+				$('#status_check').html('huita');
+				var destCtx = destinationCanvas.getContext('2d');
+				//call its drawImage() function passing it the source canvas directly
+				destCtx.drawImage(canvas, 0, 0, 28,28);
+			};
+			*/
+			
+			function canvas_to_array_fake(id) {
+				var ctx = document.getElementById(id).getContext("2d");
+				var h = ctx.canvas.height;
+				var w = ctx.canvas.width;
+				
+				//alert('h = ' + String(h) + '. w =' + String(w));
+				//return w;
+				var imgData = ctx.getImageData(0, 0, w, h);
+				var data = imgData.data;  // the array of RGBA values
+				//return data;
+				
+				//alert(String(data));
+				var canvas_array = [];
+				for(var i = 0; i < h; i++) {
+					for(var j = 0; j < w; j++) {
+						canvas_array.push(data[4 * i * w + 4 * j+3]);
+					}
+				}
+				//alert(String(canvas_array.length));
+				return canvas_array;
+			}
+			
+			function canvas_to_array(id) {
+				var ctx = document.getElementById(id).getContext("2d");
+				var h = ctx.canvas.height;
+				var w = ctx.canvas.width;
+				//return w;
+				var imgData = ctx.getImageData(0, 0, w, h);
+				var data = imgData.data;  // the array of RGBA values
+				//return data;
+				
+				//alert(String(data));
+				var canvas_array = [];
+				for(var i = 0; i < h; i++) {
+					for(var j = 0; j < w; j++) {
+						var s = 4 * i * w + 4 * j;  // calculate the index in the array
+						canvas_array.push(data[s]);
+					}
+				}
+				return canvas_array;
+			}
+			
+			var network_saved;
+			var network_loaded = false;
+			
+			
+			function load_network() {
+				var request = new XMLHttpRequest();
+				//request.open('GET', 'http://mrtgo.com/numbers.txt', true);
+				request.open('GET', 'http://mrtgo.com/jscode/dirtmp/net_new.txt', true);
+				request.onreadystatechange = function() {
+					// Makes sure the document is ready to parse.
+					if(request.readyState == 4) {
+						// Makes sure it's found the file.
+						if(request.status == 200) {
+							network_saved = request.responseText;
+							network_loaded = true;
+						}
+					}
+				};
+				request.send(null);
+			}
+			
+			
+			var put_network = function() {
+				if (!network_loaded) 
+					return;
+				network_saved = network_saved.replace(/\\/g, '');
+				var json = JSON.parse(network_saved);
+				net = new convnetjs.Net();
+				net.fromJSON(json);
+				clearInterval(net_inter);
+				//recognize image through time
+				//setInterval(classify, 500) ;
+				$('#status_check').html('classifier successfully loaded');
+				/*
+				document.getElementById("dumpjson").value = network_saved;
+				network_loaded = false;
+				clearInterval(net_inter);
+				*/
+			}
+			
+			var load_from_server = function() {
+				load_network();
+				net_inter = setInterval(put_network,100);
+			}
+			
+			function get_small_image () {
+				destinationCanvas.width = destinationCanvas.width;
+				var destCtx = destinationCanvas.getContext('2d');
+				//call its drawImage() function passing it the source canvas directly
+				destCtx.drawImage(canvas, 0, 0, height, width);
+				var data = destinationCanvas.toDataURL();
+				//alert(data);
+				var arr = canvas_to_array_fake('small_canvas'); 
+				return arr;
+			}
+			
+			function fit_image(data) {
+				var x = new convnetjs.Vol(28,28,1,0.0);
+				var W = 28*28;
+				for (var i=0;i<W;i++) {
+					x.w[i] = data[i]/255.0;
+				}
+				return x;
+			}
+			
+			function classify() {
+				var img28 = get_small_image();
+				//$('#status_check').html(String(img28));
+				//alert(img28);
+				var img_fit = fit_image(img28);
+				x = convnetjs.augment(img_fit, 24);
+				net.forward(x);
+				var yhat = net.getPrediction();
+				$('#status_check').html(classes_txt[yhat-1]);
+				//alert(yhat);
+				//alert(yhat);
+				return x;
+			}
+			
+			
+			function upload_data() {
+				destinationCanvas.width = destinationCanvas.width;
+				var destCtx = destinationCanvas.getContext('2d');
+				//call its drawImage() function passing it the source canvas directly
+				destCtx.drawImage(canvas, 0, 0, height, width);
+				var data = destinationCanvas.toDataURL();
+				var lblv = $('#lbl').val();				
+				var arr = canvas_to_array_fake('small_canvas'); 
+				//alert(arr.length);
+				//var arr = [1,2,3];
+				//alert('func:' + String(arr));
+				
+				$.post("write_line.php", {
+					imageData : arr,
+					label : lblv
+				});
+				
+				//$('#status_check').html(String(data));
+				canvas.width = canvas.width;			
+			};
+			
+			function init_canvas() {
+				load_from_server();
+				var canvas = document.getElementById('pad');
+				var start_width = String(canvas.width);
+				var start_height = String(canvas.height);
+				canvas.width = window.innerWidth;
+				var size = 0.8*Math.min(window.innerHeight,window.innerWidth);
+				canvas.height = size;
+				canvas.width = size;
+				$('#status_check').html('old_pars: ' + start_height + '/' + start_width + '; new_pars:' + String(window.innerHeight) + '/' + String(window.innerWidth)+ '; win_pars:' + String(canvas.height) + '/' + String(canvas.width));
+			}
+		</script>
+	</body>
+</html>

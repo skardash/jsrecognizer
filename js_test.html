@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+  
+    </head>
+    <body>
+		<textarea id="lbl"></textarea>
+ 		<script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+		<script>
+		//var canvas = document.getElementById('pad');
+		$('#lbl').html('100500');	
+		var sm = 0;
+		for (var i=0;i<1000;i++) { 
+			sm += i;
+		}
+		$('#lbl').html(String(sm));	
+		</script>
+	</body>
+</html>

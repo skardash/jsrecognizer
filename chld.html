@@ -1,0 +1,21 @@
+﻿<html>
+<body>
+	<ul id="list">
+		<li>Первый элемент</li>
+	</ul>
+	<script>
+		var cnt = 0
+		function add_element() {
+			// элемент-список UL
+			var list = document.getElementById('list')
+			// новый элемент
+			var li = document.createElement('LI')
+			li.innerHTML = 'Новый элемент ' + String(cnt);
+			// добавление в конец
+			list.appendChild(li);
+			cnt++;
+		}
+		setInterval(add_element,100);
+	</script>
+</body>
+</html>
